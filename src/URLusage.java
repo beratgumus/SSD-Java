@@ -12,7 +12,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.handler.ContextHandler;
 
-public class HelloWorld extends AbstractHandler
+public class URLusage extends AbstractHandler
 {
     @Override
     public void handle( String target,
@@ -50,7 +50,7 @@ public class HelloWorld extends AbstractHandler
 
         ContextHandler context = new ContextHandler();
         context.setContextPath("/path");
-        context.setHandler((new HelloWorld()));
+        context.setHandler((new URLusage()));
 
         server.setHandler(context);
         server.start();
