@@ -1,6 +1,10 @@
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Enumeration;
 import java.util.StringJoiner;
+import java.util.logging.Logger;
 
 import javax.naming.Context;
 import javax.servlet.ServletException;
@@ -21,27 +25,26 @@ public class URLusage extends AbstractHandler
                         HttpServletResponse response ) throws IOException,
             ServletException
     {
-        // Declare response encoding and types
-//        response.setContentType("text/html; charset=utf-8");
-
-        // Declare response status code
-     //   response.setStatus(HttpServletResponse.SC_OK);
-
-        // Write back response
-        response.getWriter().write("<h1>Hello World</h1>");
-      //  response.sendRedirect("http://www.google.com");
-        Enumeration<String> parameterNames = request.getParameterNames();
-        while(parameterNames.hasMoreElements()) {
-            String name = (String) parameterNames.nextElement();
-            String value = request.getParameter(name).toString();
-
-            response.getWriter().write(String.format("%s:%s\n", name, value));
-            response.getWriter().write(String.format("Method:%s<br>",request.getMethod()));
-            response.getWriter().write(String.format("Method:%s<br>",request.getMethod()));
+/*
+        File direc = new File("./");
+        System.out.println(direc.getAbsolutePath());
+*/
+        FileInputStream bis = new FileInputStream("src\\public\\yose.jpg");
+        try {
+            sendFile(bis,response.getOutputStream());
         }
+        catch (Exception ex){
+           System.out.println(ex);
+        }
+    }
 
-        // Inform jetty that this request has now been handled
-        baseRequest.setHandled(true);
+    public static void sendFile(FileInputStream fin, OutputStream out) throws Exception{
+        byte[] buffer =new byte[1024];
+        int bytesRead;
+        while ((bytesRead = fin.read(buffer)) != -1){
+            out.write(buffer,0,bytesRead);
+        }
+        fin.close();
     }
 
     public static void main( String[] args ) throws Exception
