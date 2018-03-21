@@ -1,5 +1,6 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -21,30 +22,33 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.handler.ContextHandler;
 
-public class URLusage extends AbstractHandler
-{
+public class URLusage extends AbstractHandler {
     @Override
-    public void handle( String target,
-                        Request baseRequest,
-                        HttpServletRequest request,
-                        HttpServletResponse response ) throws IOException,
-            ServletException
-    {
+    public void handle(String target,
+                       Request baseRequest,
+                       HttpServletRequest request,
+                       HttpServletResponse response) throws IOException,
+            ServletException {
 /*
         File direc = new File("./");
         System.out.println(direc.getAbsolutePath());
 */
-        String x = request.getParameter("x").toString();
-        String y = request.getParameter("y").toString();
-        String colour = request.getParameter("colour");
-        //System.out.println(x);
-        String path = "src\\public\\yose.jpg";
-        String fileName = "yose";
+        String x = request.getParameter("x");
+        String y = request.getParameter("y");
         int xx = Integer.parseInt(x);
         int yy = Integer.parseInt(y);
+        String colour = request.getParameter("colour");
+        //System.out.println(x);
+
+        String fileName = request.getPathInfo();
+        String path = "src\\public\\" + fileName;
+
         try {
-            BufferedImage img = scale(path, xx,yy,fileName,colour);
-            ImageIO.write(img,"jpg",response.getOutputStream());
+            BufferedImage img = scale(path, xx, yy);
+            if (colour != null) {
+                img = color(img, colour);
+            }
+            ImageIO.write(img, "jpg", response.getOutputStream());
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -59,35 +63,50 @@ public class URLusage extends AbstractHandler
         */
     }
 
-    public BufferedImage scale(String path , int width, int height, String filename,String colour) throws Exception{
+    private BufferedImage color(BufferedImage toColorImg, String color) {
+        int width = toColorImg.getWidth();
+        int height = toColorImg.getHeight();
+        for (int xx = 0; xx < width; xx++) {
+            for (int yy = 0; yy < height; yy++) {
+                int p = toColorImg.getRGB(yy, xx);
+                int a = (p >> 24) & 0xff;
+                int g = (p >> 8) & 0xff;
+
+                p = (a<<24) |(0<<16) |g<<8 |0;
+                toColorImg.setRGB(yy,xx,p);
+            }
+        }
+        return toColorImg;
+    }
+
+    private BufferedImage scale(String path, int width, int height) throws Exception {
         BufferedImage originaImage = ImageIO.read(new File(path));
-        BufferedImage resizedCopy = createResizedCopy(originaImage,width,height,true,colour);
+        BufferedImage resizedCopy = createResizedCopy(originaImage, width, height, true);
         return resizedCopy;
     }
 
-    private BufferedImage createResizedCopy(Image originaImage, int scaledWidth, int scaledHeight, boolean preserveAlpha,String colour ) {
-        int imageType = preserveAlpha ? BufferedImage.TYPE_INT_RGB: BufferedImage.TYPE_INT_ARGB;
-        BufferedImage scaledBI = new BufferedImage(scaledWidth,scaledHeight,imageType);
+    private BufferedImage createResizedCopy(Image originaImage, int scaledWidth, int scaledHeight, boolean preserveAlpha) {
+        int imageType = preserveAlpha ? BufferedImage.TYPE_INT_RGB : BufferedImage.TYPE_INT_ARGB;
+        BufferedImage scaledBI = new BufferedImage(scaledWidth, scaledHeight, imageType);
         Graphics2D g = scaledBI.createGraphics();
-        if (preserveAlpha){
+        if (preserveAlpha) {
             g.setComposite(AlphaComposite.Src);
         }
-        g.drawImage(originaImage,0,0,scaledWidth,scaledHeight,null);
+        g.drawImage(originaImage, 0, 0, scaledWidth, scaledHeight, null);
         g.dispose();
         return scaledBI;
     }
 
-    public static void sendFile(FileInputStream fin, OutputStream out) throws Exception{
-        byte[] buffer =new byte[1024];
+    public static void sendFile(FileInputStream fin, OutputStream out) throws Exception {
+        byte[] buffer = new byte[1024];
         int bytesRead;
-        while ((bytesRead = fin.read(buffer)) != -1){
-            out.write(buffer,0,bytesRead);
+        while ((bytesRead = fin.read(buffer)) != -1) {
+            out.write(buffer, 0, bytesRead);
         }
         fin.close();
     }
 
-    public static void main( String[] args ) throws Exception
-    {
+    public static void main(String[] args) throws Exception {
         Server server = new Server(8080);
 
         ContextHandler context = new ContextHandler();
