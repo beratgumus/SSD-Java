@@ -54,10 +54,13 @@ public class URLusage extends AbstractHandler {
         String fileName = request.getPathInfo();
 
         try {
+            // her türlü yeniden boyutlandırma yapacağız
             BufferedImage img = scale(fileName, x, y);
             if (color != null && color.equals("gray")) {
+                // color parametresi gray ise renk değiştireceğiz
                 img = grayScale(img);
             }
+
             ImageIO.write(img, "jpg", response.getOutputStream());
 
         } catch (Exception e) {
@@ -75,6 +78,7 @@ public class URLusage extends AbstractHandler {
 
 
     // TODO: (maybe) accept any color: http://www.java2s.com/Tutorials/Java/Graphics_How_to/Draw/Colorize_a_picture.htm
+    // şimdilik bunu kullanmıyoruz. bunun yavaş bir yöntem olduğunu söylüyorlar.
     private BufferedImage color(BufferedImage toColorImg, String color) {
         int width = toColorImg.getWidth();
         int height = toColorImg.getHeight();
@@ -91,6 +95,7 @@ public class URLusage extends AbstractHandler {
         return toColorImg;
     }
 
+    // resmi griye çevirip gri resmi döndürür
     private BufferedImage grayScale(BufferedImage image) {
         int width = image.getWidth();
         int height = image.getHeight();
@@ -101,6 +106,7 @@ public class URLusage extends AbstractHandler {
         return result;
     }
 
+    //Resmi uzak sunucudan veya yerelden yükler
     private BufferedImage loadImg(String fileName) throws Exception {
         if (connectRemote) {
             URL url = new URL(remoteUrl + fileName);
