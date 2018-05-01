@@ -1,12 +1,11 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.WritableRaster;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
+import java.net.URL;
 import java.nio.Buffer;
 import java.util.Enumeration;
+import java.util.Map;
 import java.util.StringJoiner;
 import java.util.logging.Logger;
 
@@ -25,6 +24,11 @@ import org.eclipse.jetty.server.handler.ContextHandler;
 import org.w3c.dom.css.Rect;
 
 public class URLusage extends AbstractHandler {
+
+    private String remoteUrl = "http://bihap.com/img";
+    private boolean connectRemote = true;
+
+
     @Override
     public void handle(String target,
                        Request baseRequest,
@@ -35,20 +39,24 @@ public class URLusage extends AbstractHandler {
         File direc = new File("./");
         System.out.println(direc.getAbsolutePath());
 */
-        String x = request.getParameter("width");
-        String y = request.getParameter("height");
-        int xx = Integer.parseInt(x);
-        int yy = Integer.parseInt(y);
-        String colour = request.getParameter("colour");
+        //Map params = request.getParameterMap();
+
+
+        int x = Integer.parseInt(request.getParameter("width"));
+        int y = Integer.parseInt(request.getParameter("height"));
+
+        String color = null;
+        if (request.getParameterMap().containsKey("color")){
+            color = request.getParameter("color").toLowerCase();
+        }
         //System.out.println(x);
 
         String fileName = request.getPathInfo();
-        String path = "src\\public\\" + fileName;
 
         try {
-            BufferedImage img = scale(path, xx, yy);
-            if (colour != null) {
-                img = color(img, colour);
+            BufferedImage img = scale(fileName, x, y);
+            if (color != null && color.equals("gray")) {
+                img = grayScale(img);
             }
             ImageIO.write(img, "jpg", response.getOutputStream());
 
@@ -66,6 +74,7 @@ public class URLusage extends AbstractHandler {
     }
 
 
+    // TODO: (maybe) accept any color: http://www.java2s.com/Tutorials/Java/Graphics_How_to/Draw/Colorize_a_picture.htm
     private BufferedImage color(BufferedImage toColorImg, String color) {
         int width = toColorImg.getWidth();
         int height = toColorImg.getHeight();
@@ -82,12 +91,43 @@ public class URLusage extends AbstractHandler {
         return toColorImg;
     }
 
-    private BufferedImage scale(String path, int width, int height) throws Exception {
-        BufferedImage originaImage = ImageIO.read(new File(path));
-        BufferedImage resizedCopy = createResizedCopy(originaImage, width, height, true);
-        return resizedCopy;
+    private BufferedImage grayScale(BufferedImage image) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+        Graphics g = result.getGraphics();
+        g.drawImage(image, 0, 0, null);
+        g.dispose();
+        return result;
     }
 
+    private BufferedImage loadImg(String fileName) throws Exception {
+        if (connectRemote) {
+            URL url = new URL(remoteUrl + fileName);
+            return ImageIO.read(url);
+        } else {
+            String path = "src\\public\\" + fileName;
+            return ImageIO.read(new File(path));
+        }
+
+    }
+
+    private BufferedImage scale(String path, int width, int height) throws Exception {
+        BufferedImage originaImage = loadImg(path);
+        //BufferedImage resizedCopy = createResizedCopy(originaImage, width, height, true);
+
+        //int imageType = preserveAlpha ? BufferedImage.TYPE_INT_RGB : BufferedImage.TYPE_INT_ARGB;
+        BufferedImage scaledImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = scaledImage.createGraphics();
+
+        g.setComposite(AlphaComposite.Src);
+
+        g.drawImage(originaImage, 0, 0, width, height, null);
+        g.dispose();
+        return scaledImage;
+    }
+
+    // DEPRECATED:
     private BufferedImage createResizedCopy(Image originaImage, int scaledWidth, int scaledHeight, boolean preserveAlpha) {
         int imageType = preserveAlpha ? BufferedImage.TYPE_INT_RGB : BufferedImage.TYPE_INT_ARGB;
         BufferedImage scaledBI = new BufferedImage(scaledWidth, scaledHeight, imageType);
