@@ -5,6 +5,7 @@ import java.io.*;
 import java.net.URL;
 import java.nio.Buffer;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.logging.Logger;
@@ -27,7 +28,9 @@ public class URLusage extends AbstractHandler {
 
     private String remoteUrl = "http://bihap.com/img";
     private boolean connectRemote = true;
-
+    private boolean ActivateCache = true;
+    private HashMap<String, BufferedImage> imgCache = new HashMap<>();
+    private boolean lockImgCache = false;
 
     @Override
     public void handle(String target,
@@ -46,16 +49,34 @@ public class URLusage extends AbstractHandler {
         int y = Integer.parseInt(request.getParameter("height"));
 
         String color = null;
-        if (request.getParameterMap().containsKey("color")){
+        if (request.getParameterMap().containsKey("color")) {
             color = request.getParameter("color").toLowerCase();
         }
         //System.out.println(x);
 
         String fileName = request.getPathInfo();
 
+        BufferedImage img;
+
+
         try {
+            if (ActivateCache) {
+                img = imgCache.get(fileName);
+
+                if (img == null) {
+                    img = loadImg(fileName);
+
+                    if (!lockImgCache) {
+                        lockImgCache = true;
+                        imgCache.put(fileName, img);
+                        lockImgCache = false;
+                    }
+                }
+            } else {
+                img = loadImg(fileName);
+            }
             // her türlü yeniden boyutlandırma yapacağız
-            BufferedImage img = scale(fileName, x, y);
+            img = scale(fileName, x, y);
             if (color != null && color.equals("gray")) {
                 // color parametresi gray ise renk değiştireceğiz
                 img = grayScale(img);
@@ -88,8 +109,8 @@ public class URLusage extends AbstractHandler {
                 int a = (p >> 24) & 0xff;
                 int g = (p >> 8) & 0xff;
 
-                p = (a<<24) |(0<<16) |g<<8 |0;
-                toColorImg.setRGB(yy,xx,p);
+                p = (a << 24) | (0 << 16) | g << 8 | 0;
+                toColorImg.setRGB(yy, xx, p);
             }
         }
         return toColorImg;
