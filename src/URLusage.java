@@ -1,28 +1,17 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.awt.image.WritableRaster;
 import java.io.*;
 import java.net.URL;
-import java.nio.Buffer;
-import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.StringJoiner;
-import java.util.logging.Logger;
-
 import javax.imageio.ImageIO;
-import javax.naming.Context;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import com.sun.javafx.font.directwrite.RECT;
-import jdk.nashorn.internal.ir.ReturnNode;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.handler.ContextHandler;
-import org.w3c.dom.css.Rect;
+import org.eclipse.jetty.util.preventers.AppContextLeakPreventer;
 
 public class URLusage extends AbstractHandler {
 
@@ -144,9 +133,12 @@ public class URLusage extends AbstractHandler {
         Graphics2D g = scaledImage.createGraphics();
 
         g.setComposite(AlphaComposite.Src);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
 
         g.drawImage(originalImg, 0, 0, width, height, null);
         g.dispose();
+
         return scaledImage;
     }
 
@@ -174,6 +166,7 @@ public class URLusage extends AbstractHandler {
 
     public static void main(String[] args) throws Exception {
         Server server = new Server(8080);
+        server.addBean(new AppContextLeakPreventer());
 
         ContextHandler context = new ContextHandler();
         context.setContextPath("/img");
