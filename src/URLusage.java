@@ -27,8 +27,8 @@ import org.w3c.dom.css.Rect;
 public class URLusage extends AbstractHandler {
 
     private String remoteUrl = "http://bihap.com/img";
-    private boolean connectRemote = true;
-    private boolean ActivateCache = true;
+    private boolean connectRemote = false;
+    private boolean ActivateCache = false;
     private HashMap<String, BufferedImage> imgCache = new HashMap<>();
     private boolean lockImgCache = false;
 
@@ -58,7 +58,6 @@ public class URLusage extends AbstractHandler {
 
         BufferedImage img;
 
-
         try {
             if (ActivateCache) {
                 img = imgCache.get(fileName);
@@ -76,7 +75,7 @@ public class URLusage extends AbstractHandler {
                 img = loadImg(fileName);
             }
             // her türlü yeniden boyutlandırma yapacağız
-            img = scale(fileName, x, y);
+            img = scale(img, x, y);
             if (color != null && color.equals("gray")) {
                 // color parametresi gray ise renk değiştireceğiz
                 img = grayScale(img);
@@ -139,17 +138,14 @@ public class URLusage extends AbstractHandler {
 
     }
 
-    private BufferedImage scale(String path, int width, int height) throws Exception {
-        BufferedImage originaImage = loadImg(path);
-        //BufferedImage resizedCopy = createResizedCopy(originaImage, width, height, true);
+    private BufferedImage scale(BufferedImage originalImg, int width, int height) throws Exception {
 
-        //int imageType = preserveAlpha ? BufferedImage.TYPE_INT_RGB : BufferedImage.TYPE_INT_ARGB;
         BufferedImage scaledImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = scaledImage.createGraphics();
 
         g.setComposite(AlphaComposite.Src);
 
-        g.drawImage(originaImage, 0, 0, width, height, null);
+        g.drawImage(originalImg, 0, 0, width, height, null);
         g.dispose();
         return scaledImage;
     }
