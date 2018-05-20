@@ -33,11 +33,11 @@ public class Server extends AbstractHandler {
             ServletException {
 
         Job job = new Job(target, baseRequest, request, response);
-        Future submit = scaleService.submit(new ScaleThread(job));
-        ioService.submit(new IOThread(job));
+        Future submit = scaleService.submit(new ScaleThread(job, ioService));
+        //ioService.submit(new IOThread(job));
         try {
             //System.out.println(submit.get());
-          Job resp= (Job) submit.get();
+            Job resp = (Job)submit.get();
             ImageIO.write(resp.getImage(), "jpg", resp.getResponse().getOutputStream());
         } catch (InterruptedException e) {
             e.printStackTrace();

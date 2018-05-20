@@ -4,12 +4,20 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 public class ScaleThread implements Callable {
     Job job;
+    ExecutorService ioService;
 
     public ScaleThread(Job job) {
         this.job = job;
+    }
+
+    public ScaleThread(Job job, ExecutorService ioService) {
+        this.job = job;
+        this.ioService = ioService;
     }
 
 
@@ -53,14 +61,24 @@ public class ScaleThread implements Callable {
 
     @Override
     public Object call() throws Exception {
+
+        Future submit = ioService.submit(new IOThread(job));
+
+        Job resp = null;
+
+        try {
+            //System.out.println(submit.get());
+            resp = (Job)submit.get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         synchronized (job) {
             BufferedImage img = null;
             try {
                 String name = Thread.currentThread().getName();
-                System.out.println(name + " waiting to get notified at time:" + System.currentTimeMillis());
-                job.wait();
-                System.out.println(name + "  thread got notified at time:" + System.currentTimeMillis());
-                img = scale(job.getImage(), job.getWidth(), job.getHeight());
+                System.out.println(name + " Scale started at time: " + System.currentTimeMillis());
+                img = scale(resp.getImage(), resp.getWidth(), resp.getHeight());
 
        /*         if (job != null && job.getColor() != null && job.getColor().equals("gray")) {
                     // color parametresi gray ise renk değiştireceğiz

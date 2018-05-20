@@ -18,7 +18,6 @@ public class IOThread implements Callable {
         this.job = job;
     }
 
-
     //Resmi uzak sunucudan veya yerelden yükler
 
     private BufferedImage loadImg(String fileName) throws Exception {
@@ -30,13 +29,12 @@ public class IOThread implements Callable {
             return ImageIO.read(new File(path));
         }
 
-
     }
 
     @Override
     public Object call() throws Exception {
         String name = Thread.currentThread().getName();
-        System.out.println(name+" started");
+        System.out.println(name+" IO started");
         synchronized (job) {
             if (ActivateCache) {
                 img = imgCache.get(job.getFilename());
@@ -62,10 +60,11 @@ public class IOThread implements Callable {
                 }
             }
             job.setImage(img);
-            System.out.println(name+" Notifier work done");
-            job.notify();
+            //System.out.println(name+" IO Notifier work done");
+           // job.notify();
 
         }
+        System.out.println(name+" IO ended");
         return job;
     }
 }
