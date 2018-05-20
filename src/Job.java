@@ -44,4 +44,8 @@ public class Job {
     public BufferedImage getImage() {
         return img;
     }
+
+    public HttpServletResponse getResponse() {
+        return response;
+    }
 }

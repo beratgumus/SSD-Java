@@ -17,10 +17,14 @@ import org.eclipse.jetty.util.preventers.AppContextLeakPreventer;
 public class Server extends AbstractHandler {
     ExecutorService ioService;
     ExecutorService scaleService;
+    BlockingQueue<Job> ioQueue;
+    BlockingQueue<Job> scaleQueue;
 
     public Server() {
         ioService = Executors.newFixedThreadPool(10);
         scaleService = Executors.newFixedThreadPool(10);
+        ioQueue = new LinkedBlockingQueue<>();
+        scaleQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
@@ -31,10 +35,14 @@ public class Server extends AbstractHandler {
             ServletException {
 
         Job job = new Job(target, baseRequest, request, response);
-
-
-
-        ImageIO.write(job.getImage(), "jpg", response.getOutputStream());
+        try {
+            ioQueue.put(job);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        ioService.submit(new IOThread(ioQueue,scaleQueue));
+        scaleService.submit(new ScaleThread(scaleQueue));
+        //ImageIO.write(job.getImage(), "jpg", response.getOutputStream());
 
     }
 

@@ -1,36 +1,59 @@
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.concurrent.BlockingQueue;
 
 public class ScaleThread implements Runnable {
-    Job job;
+    final BlockingQueue<Job> scaleQueue;
 
-    public ScaleThread(Job job) {
-        this.job = job;
+    public ScaleThread(BlockingQueue<Job> scaleQueue) {
+        this.scaleQueue = scaleQueue;
     }
 
     @Override
     public void run() {
-        BufferedImage img=null;
-        try {
-            img = scale(job.getImage(), job.getWidth(), job.getHeight());
+        while (true) {
+            synchronized (scaleQueue) {
+                Job job = null;
+                try {
+                    job = scaleQueue.take();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                synchronized (job) {
+                    BufferedImage img = null;
+                    try {
+                        img = scale(job.getImage(), job.getWidth(), job.getHeight());
 
+                        if (job != null && job.getColor() != null && job.getColor().equals("gray")) {
+                            // color parametresi gray ise renk değiştireceğiz
+                            img = grayScale(img);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    //ImageIO.write(img, "jpg", response.getOutputStream());
+                    if (img != null)
+                        job.setImage(img);
 
-        if (job.getColor() != null && job.getColor().equals("gray")) {
-            // color parametresi gray ise renk değiştireceğiz
-            img = grayScale(img);
+                    job.notify();
+                    /*
+
+                    try {
+                        ImageIO.write(job.getImage(), "jpg", job.getResponse().getOutputStream());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }*/
+                    System.out.println("scaleQueue2: " + scaleQueue.size());
+
+                }
+
+            }
         }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-        //ImageIO.write(img, "jpg", response.getOutputStream());
-        if (img!= null)
-            job.setImage(img);
     }
-
-
     // resmi griye çevirip gri resmi döndürür
+
     private BufferedImage grayScale(BufferedImage image) {
         int width = image.getWidth();
         int height = image.getHeight();
