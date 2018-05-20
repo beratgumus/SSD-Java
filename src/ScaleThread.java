@@ -32,8 +32,7 @@ public class ScaleThread implements Callable {
                     }*/
 
 
-    // resmi griye çevirip gri resmi döndürür
-
+    // resmi griye çevirip gri resmi döndürü
     private BufferedImage grayScale(BufferedImage image) {
         int width = image.getWidth();
         int height = image.getHeight();
@@ -80,11 +79,11 @@ public class ScaleThread implements Callable {
                 System.out.println(name + " Scale started at time: " + System.currentTimeMillis());
                 img = scale(resp.getImage(), resp.getWidth(), resp.getHeight());
 
-       /*         if (job != null && job.getColor() != null && job.getColor().equals("gray")) {
+                if (resp.getColor() != null && resp.getColor().equals("gray")) {
                     // color parametresi gray ise renk değiştireceğiz
                     img = grayScale(img);
                 }
-                */
+
             } catch (Exception e) {
                 e.printStackTrace();
             }

@@ -34,6 +34,8 @@ public class Job {
     }
 
     public String getColor() {
+        if (request.getParameter("color") == null)
+            return null;
         return request.getParameter("color").toLowerCase();
     }
 
