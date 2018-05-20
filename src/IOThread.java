@@ -3,72 +3,22 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 
-public class IOThread implements Runnable {
+public class IOThread implements Callable {
     String remoteUrl = "http://bihap.com/img";
-    boolean connectRemote = true;
+    boolean connectRemote = false;
     boolean ActivateCache = true;
     HashMap<String, BufferedImage> imgCache = new HashMap<>();
     boolean lockImgCache = false;
-    final BlockingQueue<Job> ioQueue;
-    final BlockingQueue<Job> scaleQueue;
+    Job job;
     BufferedImage img;
 
-    public IOThread(BlockingQueue<Job> ioQueue, BlockingQueue<Job> scaleQueue) {
-        this.ioQueue = ioQueue;
-        this.scaleQueue = scaleQueue;
+    public IOThread(Job job) {
+        this.job = job;
     }
 
-    @Override
-    public void run() {
-        while (true) {
-            synchronized (ioQueue) {
-                Job job = null;
-                try {
-                    job = ioQueue.take();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
 
-                synchronized (job) {
-                    if (ActivateCache) {
-                        img = imgCache.get(job.getFilename());
-
-                        if (img == null) {
-                            try {
-                                img = loadImg(job.getFilename());
-                            } catch (Exception e1) {
-                                e1.printStackTrace();
-                            }
-
-                            if (!lockImgCache) {
-                                lockImgCache = true;
-                                imgCache.put(job.getFilename(), img);
-                                lockImgCache = false;
-                            }
-                        }
-                    } else {
-                        try {
-                            img = loadImg(job.getFilename());
-                        } catch (Exception e1) {
-                            e1.printStackTrace();
-                        }
-                    }
-                    try {
-                        job.setImage(img);
-                        scaleQueue.put(job);
-                        job.wait();
-                        System.out.println("ioQueue: "+ioQueue.size());
-                        System.out.println("scaleQueue: "+scaleQueue.size());
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-
-                }
-            }
-        }
-    }
     //Resmi uzak sunucudan veya yerelden yükler
 
     private BufferedImage loadImg(String fileName) throws Exception {
@@ -81,5 +31,41 @@ public class IOThread implements Runnable {
         }
 
 
+    }
+
+    @Override
+    public Object call() throws Exception {
+        String name = Thread.currentThread().getName();
+        System.out.println(name+" started");
+        synchronized (job) {
+            if (ActivateCache) {
+                img = imgCache.get(job.getFilename());
+
+                if (img == null) {
+                    try {
+                        img = loadImg(job.getFilename());
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
+
+                    if (!lockImgCache) {
+                        lockImgCache = true;
+                        imgCache.put(job.getFilename(), img);
+                        lockImgCache = false;
+                    }
+                }
+            } else {
+                try {
+                    img = loadImg(job.getFilename());
+                } catch (Exception e1) {
+                    e1.printStackTrace();
+                }
+            }
+            job.setImage(img);
+            System.out.println(name+" Notifier work done");
+            job.notify();
+
+        }
+        return job;
     }
 }

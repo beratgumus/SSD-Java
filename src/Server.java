@@ -8,6 +8,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import jdk.nashorn.internal.scripts.JO;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.handler.ContextHandler;
@@ -17,14 +18,11 @@ import org.eclipse.jetty.util.preventers.AppContextLeakPreventer;
 public class Server extends AbstractHandler {
     ExecutorService ioService;
     ExecutorService scaleService;
-    BlockingQueue<Job> ioQueue;
-    BlockingQueue<Job> scaleQueue;
 
     public Server() {
         ioService = Executors.newFixedThreadPool(10);
         scaleService = Executors.newFixedThreadPool(10);
-        ioQueue = new LinkedBlockingQueue<>();
-        scaleQueue = new LinkedBlockingQueue<>();
+
     }
 
     @Override
@@ -35,13 +33,17 @@ public class Server extends AbstractHandler {
             ServletException {
 
         Job job = new Job(target, baseRequest, request, response);
+        Future submit = scaleService.submit(new ScaleThread(job));
+        ioService.submit(new IOThread(job));
         try {
-            ioQueue.put(job);
+            //System.out.println(submit.get());
+          Job resp= (Job) submit.get();
+            ImageIO.write(resp.getImage(), "jpg", resp.getResponse().getOutputStream());
         } catch (InterruptedException e) {
             e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
         }
-        ioService.submit(new IOThread(ioQueue,scaleQueue));
-        scaleService.submit(new ScaleThread(scaleQueue));
         //ImageIO.write(job.getImage(), "jpg", response.getOutputStream());
 
     }
