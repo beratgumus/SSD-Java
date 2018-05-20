@@ -6,13 +6,13 @@ import java.util.HashMap;
 import java.util.concurrent.Callable;
 
 public class IOThread implements Callable {
-    String remoteUrl = "http://bihap.com/img";
-    boolean connectRemote = false;
-    boolean ActivateCache = true;
-    HashMap<String, BufferedImage> imgCache = new HashMap<>();
-    boolean lockImgCache = false;
-    Job job;
-    BufferedImage img;
+    private String remoteUrl = "http://bihap.com/img";
+    private boolean connectRemote = false;
+    private boolean ActivateCache = false;
+    private HashMap<String, BufferedImage> imgCache = new HashMap<>();
+    private boolean lockImgCache = false;
+    private Job job;
+    private BufferedImage img;
 
     public IOThread(Job job) {
         this.job = job;
@@ -28,43 +28,38 @@ public class IOThread implements Callable {
             String path = "src\\public\\" + fileName;
             return ImageIO.read(new File(path));
         }
-
     }
 
     @Override
-    public Object call() throws Exception {
+    public Object call() {
         String name = Thread.currentThread().getName();
-        System.out.println(name+" IO started");
-        synchronized (job) {
-            if (ActivateCache) {
-                img = imgCache.get(job.getFilename());
+        System.out.println(name + " IO started");
+        if (ActivateCache) {
+            img = imgCache.get(job.getFilename());
 
-                if (img == null) {
-                    try {
-                        img = loadImg(job.getFilename());
-                    } catch (Exception e1) {
-                        e1.printStackTrace();
-                    }
-
-                    if (!lockImgCache) {
-                        lockImgCache = true;
-                        imgCache.put(job.getFilename(), img);
-                        lockImgCache = false;
-                    }
-                }
-            } else {
+            if (img == null) {
                 try {
                     img = loadImg(job.getFilename());
                 } catch (Exception e1) {
                     e1.printStackTrace();
                 }
-            }
-            job.setImage(img);
-            //System.out.println(name+" IO Notifier work done");
-           // job.notify();
 
+                if (!lockImgCache) {
+                    lockImgCache = true;
+                    imgCache.put(job.getFilename(), img);
+                    lockImgCache = false;
+                }
+            }
+        } else {
+            try {
+                img = loadImg(job.getFilename());
+            } catch (Exception e1) {
+                e1.printStackTrace();
+            }
         }
-        System.out.println(name+" IO ended");
+        job.setImage(img);
+
+        System.out.println(name + " IO ended");
         return job;
     }
 }

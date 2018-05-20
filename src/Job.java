@@ -1,5 +1,4 @@
 import org.eclipse.jetty.server.Request;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.awt.image.BufferedImage;
