@@ -11,14 +11,10 @@ public class Job {
     HttpServletResponse response;
     BufferedImage img;
 
-    public Job(String target,
-               Request baseRequest,
-               HttpServletRequest request,
-               HttpServletResponse response) {
-        this.target = target;
-        this.baseRequest = baseRequest;
+    public Job(HttpServletRequest request) {
+
         this.request = request;
-        this.response = response;
+
     }
 
     public int getWidth() {
@@ -45,7 +41,4 @@ public class Job {
         return img;
     }
 
-    public HttpServletResponse getResponse() {
-        return response;
-    }
 }
