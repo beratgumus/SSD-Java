@@ -1,6 +1,8 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.net.URL;
+import java.util.HashMap;
 import java.util.concurrent.*;
 
 import javax.imageio.ImageIO;
@@ -17,14 +19,16 @@ import org.eclipse.jetty.util.preventers.AppContextLeakPreventer;
 public class Server extends AbstractHandler {
     ExecutorService ioService;
     ExecutorService scaleService;
-    BlockingQueue<Job> ioQueue;
-    BlockingQueue<Job> scaleQueue;
+    final BlockingQueue<Job> ioQueue;
+    final BlockingQueue<Job> scaleQueue;
+    final BlockingQueue<Job> resultQueue;
 
     public Server() {
         ioService = Executors.newFixedThreadPool(10);
         scaleService = Executors.newFixedThreadPool(10);
         ioQueue = new LinkedBlockingQueue<>();
         scaleQueue = new LinkedBlockingQueue<>();
+        resultQueue = new LinkedBlockingQueue<>();
     }
 
     @Override
@@ -40,9 +44,20 @@ public class Server extends AbstractHandler {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        ioService.submit(new IOThread(ioQueue,scaleQueue));
-        scaleService.submit(new ScaleThread(scaleQueue));
-        //ImageIO.write(job.getImage(), "jpg", response.getOutputStream());
+        ioService.submit(new IOThread());
+
+        while (resultQueue.isEmpty()) {
+            try {
+                synchronized (resultQueue) {
+                    resultQueue.wait();
+                    Job result = resultQueue.take();
+                    ImageIO.write(result.getImage(), "jpg", response.getOutputStream());
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
 
     }
 
@@ -99,5 +114,155 @@ public class Server extends AbstractHandler {
         server.setHandler(context);
         server.start();
         server.join();
+    }
+
+    public class IOThread implements Runnable {
+        String remoteUrl = "http://bihap.com/img";
+        boolean connectRemote = false;
+        boolean ActivateCache = true;
+        HashMap<String, BufferedImage> imgCache = new HashMap<>();
+        boolean lockImgCache = false;
+        BufferedImage img;
+
+
+        @Override
+        public void run() {
+            while (!ioQueue.isEmpty()) {
+                Job job = null;
+                synchronized (ioQueue) {
+                    try {
+                        job = ioQueue.take();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                synchronized (job) {
+                    if (ActivateCache) {
+                        img = imgCache.get(job.getFilename());
+
+                        if (img == null) {
+                            try {
+                                img = loadImg(job.getFilename());
+                            } catch (Exception e1) {
+                                e1.printStackTrace();
+                            }
+
+                            if (!lockImgCache) {
+                                lockImgCache = true;
+                                imgCache.put(job.getFilename(), img);
+                                lockImgCache = false;
+                            }
+                        }
+                    } else {
+                        try {
+                            img = loadImg(job.getFilename());
+                        } catch (Exception e1) {
+                            e1.printStackTrace();
+                        }
+                    }
+                    try {
+                        job.setImage(img);
+                        scaleQueue.put(job);
+                        scaleService.submit(new ScaleThread());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+
+
+            }
+        }
+        //Resmi uzak sunucudan veya yerelden yükler
+
+        private BufferedImage loadImg(String fileName) throws Exception {
+            if (connectRemote) {
+                URL url = new URL(remoteUrl + fileName);
+                return ImageIO.read(url);
+            } else {
+                String path = "src\\public\\" + fileName;
+                return ImageIO.read(new File(path));
+            }
+
+
+        }
+    }
+
+    public class ScaleThread implements Runnable {
+
+        @Override
+        public void run() {
+            while (!scaleQueue.isEmpty()) {
+                Job job = null;
+                synchronized (scaleQueue) {
+                    try {
+                        job = scaleQueue.take();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                synchronized (job) {
+                    BufferedImage img = null;
+                    try {
+                        img = scale(job.getImage(), job.getWidth(), job.getHeight());
+/*
+                        if (job != null && job.getColor() != null && job.getColor().equals("gray")) {
+                            // color parametresi gray ise renk değiştireceğiz
+                            img = grayScale(img);
+                        }
+                        */
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    //ImageIO.write(img, "jpg", response.getOutputStream());
+                    if (img != null)
+                        job.setImage(img);
+                    synchronized (resultQueue) {
+                        try {
+                            resultQueue.put(job);
+                            resultQueue.notifyAll();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    /*
+
+                    try {
+                        ImageIO.write(job.getImage(), "jpg", job.getResponse().getOutputStream());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }*/
+
+                }
+
+
+            }
+        }
+        // resmi griye çevirip gri resmi döndürür
+
+        private BufferedImage grayScale(BufferedImage image) {
+            int width = image.getWidth();
+            int height = image.getHeight();
+            BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+            Graphics g = result.getGraphics();
+            g.drawImage(image, 0, 0, null);
+            g.dispose();
+            return result;
+        }
+
+        private BufferedImage scale(BufferedImage originalImg, int width, int height) throws Exception {
+
+            BufferedImage scaledImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = scaledImage.createGraphics();
+
+            g.setComposite(AlphaComposite.Src);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+
+            g.drawImage(originalImg, 0, 0, width, height, null);
+            g.dispose();
+
+            return scaledImage;
+        }
     }
 }
