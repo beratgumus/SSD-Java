@@ -45,7 +45,15 @@ public class Server extends AbstractHandler {
             e.printStackTrace();
         }
         ioService.submit(new IOThread());
-
+        synchronized (job) {
+            try {
+                job.wait();
+                ImageIO.write(job.getImage(), "jpg", response.getOutputStream());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+/*
         while (resultQueue.isEmpty()) {
             try {
                 synchronized (resultQueue) {
@@ -57,7 +65,7 @@ public class Server extends AbstractHandler {
                 e.printStackTrace();
             }
         }
-
+*/
 
     }
 
@@ -127,51 +135,47 @@ public class Server extends AbstractHandler {
 
         @Override
         public void run() {
-            while (!ioQueue.isEmpty()) {
-                Job job = null;
-                synchronized (ioQueue) {
-                    try {
-                        job = ioQueue.take();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-                synchronized (job) {
-                    if (ActivateCache) {
-                        img = imgCache.get(job.getFilename());
 
-                        if (img == null) {
-                            try {
-                                img = loadImg(job.getFilename());
-                            } catch (Exception e1) {
-                                e1.printStackTrace();
-                            }
-
-                            if (!lockImgCache) {
-                                lockImgCache = true;
-                                imgCache.put(job.getFilename(), img);
-                                lockImgCache = false;
-                            }
-                        }
-                    } else {
-                        try {
-                            img = loadImg(job.getFilename());
-                        } catch (Exception e1) {
-                            e1.printStackTrace();
-                        }
-                    }
-                    try {
-                        job.setImage(img);
-                        scaleQueue.put(job);
-                        scaleService.submit(new ScaleThread());
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-
-                }
-
-
+            Job job = null;
+            try {
+                job = ioQueue.take();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
+
+
+            if (ActivateCache) {
+                img = imgCache.get(job.getFilename());
+
+                if (img == null) {
+                    try {
+                        img = loadImg(job.getFilename());
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
+
+                    if (!lockImgCache) {
+                        lockImgCache = true;
+                        imgCache.put(job.getFilename(), img);
+                        lockImgCache = false;
+                    }
+                }
+            } else {
+                try {
+                    img = loadImg(job.getFilename());
+                } catch (Exception e1) {
+                    e1.printStackTrace();
+                }
+            }
+            try {
+                job.setImage(img);
+                scaleQueue.put(job);
+                scaleService.submit(new ScaleThread());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+
         }
         //Resmi uzak sunucudan veya yerelden yükler
 
@@ -192,39 +196,34 @@ public class Server extends AbstractHandler {
 
         @Override
         public void run() {
-            while (!scaleQueue.isEmpty()) {
-                Job job = null;
-                synchronized (scaleQueue) {
-                    try {
-                        job = scaleQueue.take();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-                synchronized (job) {
-                    BufferedImage img = null;
-                    try {
-                        img = scale(job.getImage(), job.getWidth(), job.getHeight());
+
+            Job job = null;
+            try {
+                job = scaleQueue.take();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+
+            BufferedImage img = null;
+            try {
+                img = scale(job.getImage(), job.getWidth(), job.getHeight());
 /*
                         if (job != null && job.getColor() != null && job.getColor().equals("gray")) {
                             // color parametresi gray ise renk değiştireceğiz
                             img = grayScale(img);
                         }
                         */
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    //ImageIO.write(img, "jpg", response.getOutputStream());
-                    if (img != null)
-                        job.setImage(img);
-                    synchronized (resultQueue) {
-                        try {
-                            resultQueue.put(job);
-                            resultQueue.notifyAll();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            //ImageIO.write(img, "jpg", response.getOutputStream());
+            if (img != null)
+                job.setImage(img);
+
+
+            job.notify();
+
                     /*
 
                     try {
@@ -233,10 +232,7 @@ public class Server extends AbstractHandler {
                         e.printStackTrace();
                     }*/
 
-                }
 
-
-            }
         }
         // resmi griye çevirip gri resmi döndürür
 
