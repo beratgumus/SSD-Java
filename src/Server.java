@@ -21,7 +21,7 @@ public class Server extends AbstractHandler {
     boolean connectRemote = true;
     boolean ActivateCache = true;
     HashMap<String, BufferedImage> imgCache = new HashMap<>();
-
+   int respCount=0;
 
     ExecutorService ioService;
     ExecutorService scaleService;
@@ -48,8 +48,12 @@ public class Server extends AbstractHandler {
 
         synchronized (job) {
             try {
+                String name = Thread.currentThread().getName();
+               // System.out.println(name + " Main is waiting");
                 job.wait();
                 ImageIO.write(job.getImage(), "jpg", response.getOutputStream());
+
+               // System.out.println(name + " Response is done "+respCount++);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -114,7 +118,7 @@ public class Server extends AbstractHandler {
 
     public static void main(String[] args) throws Exception {
         org.eclipse.jetty.server.Server server = new org.eclipse.jetty.server.Server(8080);
-        server.addBean(new AppContextLeakPreventer());
+        //server.addBean(new AppContextLeakPreventer());
 
         ContextHandler context = new ContextHandler();
         context.setContextPath("/img");
@@ -131,7 +135,9 @@ public class Server extends AbstractHandler {
 
         @Override
         public void run() {
-
+            String name = Thread.currentThread().getName();
+           // System.out.println(name + " IO started");
+            long start = System.currentTimeMillis();
             Job job = ioQueue.poll();
 
             if (ActivateCache) {
@@ -159,7 +165,9 @@ public class Server extends AbstractHandler {
             }
             job.setImage(img);
             scaleQueue.add(job);
+            long end = System.currentTimeMillis();
             scaleService.execute(new ScaleThread());
+            //System.out.println(name + " IO ended : " + (end-start));
 
         }
         //Resmi uzak sunucudan veya yerelden yükler
@@ -181,7 +189,8 @@ public class Server extends AbstractHandler {
 
         @Override
         public void run() {
-
+            String name = Thread.currentThread().getName();
+           // System.out.println(name + " Scale started");
             Job job = scaleQueue.poll();
             BufferedImage img = null;
             try {
@@ -202,6 +211,7 @@ public class Server extends AbstractHandler {
             synchronized (job) {
                 job.notify();
             }
+          //  System.out.println(name + " Scale ended");
                     /*
 
                     try {
