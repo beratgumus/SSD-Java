@@ -23,8 +23,8 @@ public class Server extends AbstractHandler {
     final BlockingQueue<Job> scaleQueue;
 
     public Server() {
-        ioService = Executors.newFixedThreadPool(303);
-        scaleService = Executors.newFixedThreadPool(303);
+        ioService = Executors.newFixedThreadPool(10);
+        scaleService = Executors.newFixedThreadPool(10);
         ioQueue = new LinkedBlockingQueue<>();
         scaleQueue = new LinkedBlockingQueue<>();
     }
@@ -37,12 +37,9 @@ public class Server extends AbstractHandler {
             ServletException {
 
         Job job = new Job(request);
-        try {
-            ioQueue.put(job);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        ioService.execute(new IOThread());
+        ioQueue.add(job);
+        ioService.submit(new IOThread());
+
         synchronized (job) {
             try {
                 job.wait();
@@ -124,7 +121,7 @@ public class Server extends AbstractHandler {
 
     public class IOThread implements Runnable {
         String remoteUrl = "http://bihap.com/img";
-        boolean connectRemote = false;
+        boolean connectRemote = true;
         boolean ActivateCache = true;
         HashMap<String, BufferedImage> imgCache = new HashMap<>();
         boolean lockImgCache = false;
@@ -135,39 +132,33 @@ public class Server extends AbstractHandler {
 
             Job job = ioQueue.poll();
 
+            if (ActivateCache) {
+                img = imgCache.get(job.getFilename());
 
-            synchronized (job) {
-                if (ActivateCache) {
-                    img = imgCache.get(job.getFilename());
-
-                    if (img == null) {
-                        try {
-                            img = loadImg(job.getFilename());
-                        } catch (Exception e1) {
-                            e1.printStackTrace();
-                        }
-
-                        if (!lockImgCache) {
-                            lockImgCache = true;
-                            imgCache.put(job.getFilename(), img);
-                            lockImgCache = false;
-                        }
-                    }
-                } else {
+                if (img == null) {
                     try {
                         img = loadImg(job.getFilename());
                     } catch (Exception e1) {
                         e1.printStackTrace();
                     }
+
+                    if (!lockImgCache) {
+                        lockImgCache = true;
+                        imgCache.put(job.getFilename(), img);
+                        lockImgCache = false;
+                    }
                 }
+            } else {
                 try {
-                    job.setImage(img);
-                    scaleQueue.put(job);
-                    scaleService.execute(new ScaleThread());
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    img = loadImg(job.getFilename());
+                } catch (Exception e1) {
+                    e1.printStackTrace();
                 }
             }
+                job.setImage(img);
+                scaleQueue.add(job);
+                
+                scaleService.submit(new ScaleThread());
 
         }
         //Resmi uzak sunucudan veya yerelden yükler
@@ -191,26 +182,23 @@ public class Server extends AbstractHandler {
         public void run() {
 
             Job job = scaleQueue.poll();
-
-
-            synchronized (job) {
-                BufferedImage img = null;
-                try {
-                    img = scale(job.getImage(), job.getWidth(), job.getHeight());
+            BufferedImage img = null;
+            try {
+                img = scale(job.getImage(), job.getWidth(), job.getHeight());
 /*
                         if (job != null && job.getColor() != null && job.getColor().equals("gray")) {
                             // color parametresi gray ise renk değiştireceğiz
                             img = grayScale(img);
                         }
                         */
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                //ImageIO.write(img, "jpg", response.getOutputStream());
-                if (img != null)
-                    job.setImage(img);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            //ImageIO.write(img, "jpg", response.getOutputStream());
+            if (img != null)
+                job.setImage(img);
 
-
+            synchronized (job) {
                 job.notify();
             }
                     /*
