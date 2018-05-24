@@ -17,13 +17,19 @@ import org.eclipse.jetty.util.preventers.AppContextLeakPreventer;
 
 
 public class Server extends AbstractHandler {
+    String remoteUrl = "http://bihap.com/img";
+    boolean connectRemote = true;
+    boolean ActivateCache = true;
+    HashMap<String, BufferedImage> imgCache = new HashMap<>();
+
+
     ExecutorService ioService;
     ExecutorService scaleService;
     final BlockingQueue<Job> ioQueue;
     final BlockingQueue<Job> scaleQueue;
 
     public Server() {
-        ioService = Executors.newFixedThreadPool(10);
+        ioService = Executors.newFixedThreadPool(30);
         scaleService = Executors.newFixedThreadPool(10);
         ioQueue = new LinkedBlockingQueue<>();
         scaleQueue = new LinkedBlockingQueue<>();
@@ -38,7 +44,7 @@ public class Server extends AbstractHandler {
 
         Job job = new Job(request);
         ioQueue.add(job);
-        ioService.submit(new IOThread());
+        ioService.execute(new IOThread());
 
         synchronized (job) {
             try {
@@ -120,12 +126,8 @@ public class Server extends AbstractHandler {
     }
 
     public class IOThread implements Runnable {
-        String remoteUrl = "http://bihap.com/img";
-        boolean connectRemote = true;
-        boolean ActivateCache = true;
-        HashMap<String, BufferedImage> imgCache = new HashMap<>();
-        boolean lockImgCache = false;
         BufferedImage img;
+        boolean lockImgCache = false;
 
         @Override
         public void run() {
@@ -155,10 +157,9 @@ public class Server extends AbstractHandler {
                     e1.printStackTrace();
                 }
             }
-                job.setImage(img);
-                scaleQueue.add(job);
-                
-                scaleService.submit(new ScaleThread());
+            job.setImage(img);
+            scaleQueue.add(job);
+            scaleService.execute(new ScaleThread());
 
         }
         //Resmi uzak sunucudan veya yerelden yükler
